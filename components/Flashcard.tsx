@@ -10,6 +10,7 @@ export interface Vocabulary {
   example_sentence?: string;
   example_pinyin?: string;
   example_meaning?: string;
+  category_id?: string;
 }
 
 interface FlashcardProps {
@@ -22,7 +23,7 @@ export default function Flashcard({ vocab, onNext, onPrev }: FlashcardProps) {
   const [flipped, setFlipped] = useState(false);
   const [prevId, setPrevId] = useState(vocab.id);
 
-  // Reset mặt thẻ khi id từ vựng thay đổi
+  // Tự động lật về mặt trước khi đổi sang từ vựng khác
   if (prevId !== vocab.id) {
     setPrevId(vocab.id);
     setFlipped(false);
@@ -30,7 +31,7 @@ export default function Flashcard({ vocab, onNext, onPrev }: FlashcardProps) {
 
   const playAudio = (text: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if ('speechSynthesis' in window) {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'zh-CN';
@@ -49,7 +50,7 @@ export default function Flashcard({ vocab, onNext, onPrev }: FlashcardProps) {
     if (onPrev) onPrev();
   };
 
-  // Phím tắt bàn phím
+  // Lắng nghe phím tắt bàn phím
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
@@ -75,9 +76,16 @@ export default function Flashcard({ vocab, onNext, onPrev }: FlashcardProps) {
       >
         {/* HEADER */}
         <div className="flex justify-between items-center z-10">
-          <span className="text-xs bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full font-semibold">
-            {flipped ? 'Mặt Sau (Đáp Án)' : 'Nhấn Space hoặc Click để lật thẻ'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full font-semibold">
+              {flipped ? 'Mặt Sau (Đáp Án)' : 'Nhấn Space hoặc Click để lật thẻ'}
+            </span>
+            {vocab.category_id && (
+              <span className="text-xs bg-yellow-400/30 text-yellow-200 border border-yellow-300/30 backdrop-blur-md px-3 py-1.5 rounded-full font-bold">
+                📁 {vocab.category_id}
+              </span>
+            )}
+          </div>
           <button
             onClick={(e) => playAudio(vocab.hanzi, e)}
             className="p-3 bg-white/20 hover:bg-white/30 rounded-full transition-colors text-xl"

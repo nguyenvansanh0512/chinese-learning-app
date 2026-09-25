@@ -13,17 +13,15 @@ export default function FlashcardViewer({ vocabularies }: FlashcardViewerProps) 
   if (!vocabularies || vocabularies.length === 0) {
     return (
       <div className="text-center py-12 text-slate-400 font-semibold">
-        Chưa có từ vựng nào để hiển thị.
+        Chưa có từ vựng nào trong chủ đề này.
       </div>
     );
   }
 
-  // Chuyển tới thẻ tiếp theo (Quay về thẻ 1 khi đi hết danh sách)
   const handleNext = () => {
     setCurrentIndex((prev) => (prev + 1) % vocabularies.length);
   };
 
-  // Quay lại thẻ trước (Lùi về thẻ cuối khi ở thẻ 1)
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev - 1 + vocabularies.length) % vocabularies.length);
   };

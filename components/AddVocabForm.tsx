@@ -24,6 +24,7 @@ export default function AddVocabForm() {
     example_sentence: '',
     example_pinyin: '',
     example_meaning: '',
+    category_id: '', // 🟢 THÊM STATE QUẢN LÝ CHỦ ĐỀ
   });
 
   useEffect(() => {
@@ -58,7 +59,6 @@ export default function AddVocabForm() {
 
       if (res.ok) {
         const sentence = data.example_sentence || '';
-        // 🟢 Tự động chuyển câu ví dụ tiếng Hán thành Pinyin
         const autoExamplePinyin = sentence ? pinyin(sentence, { toneType: 'symbol' }) : '';
 
         setFormData((prev) => ({
@@ -83,7 +83,6 @@ export default function AddVocabForm() {
     }
   };
 
-  // XỬ LÝ NHẬP CHỮ HÁN
   const handleHanziChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     const trimmed = val.trim();
@@ -102,6 +101,7 @@ export default function AddVocabForm() {
         example_sentence: '',
         example_pinyin: '',
         example_meaning: '',
+        category_id: formData.category_id, // Giữ lại chủ đề đang nhập
       });
       return;
     }
@@ -121,7 +121,6 @@ export default function AddVocabForm() {
     }, 700);
   };
 
-  // XỬ LÝ KHI NGƯỜI DÙNG TỰ SỬA CÂU VÍ DỤ TIẾNG HÁN
   const handleExampleSentenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     const autoExamplePinyin = val.trim() ? pinyin(val, { toneType: 'symbol' }) : '';
@@ -158,6 +157,8 @@ export default function AddVocabForm() {
       {
         ...formData,
         user_id: userId,
+        // Nếu người dùng không nhập chủ đề, có thể lưu null hoặc chuỗi rỗng
+        category_id: formData.category_id.trim() || null, 
       },
     ]);
 
@@ -167,14 +168,16 @@ export default function AddVocabForm() {
       alert('Lỗi khi lưu: ' + error.message);
     } else {
       alert('Đã lưu từ vựng thành công!');
-      setFormData({
+      // Xóa form nhưng CÓ THỂ giữ lại category_id để người dùng nhập liên tục các từ cùng chủ đề
+      setFormData((prev) => ({
         hanzi: '',
         pinyin: '',
         meaning_vi: '',
         example_sentence: '',
         example_pinyin: '',
         example_meaning: '',
-      });
+        category_id: prev.category_id, // 🟢 Giữ nguyên chủ đề cho từ tiếp theo
+      }));
       setAiError(null);
     }
   };
@@ -189,6 +192,20 @@ export default function AddVocabForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        
+        {/* 🟢 KHU VỰC CHỌN CHỦ ĐỀ */}
+        <div>
+          <label className="text-xs font-bold text-gray-500 uppercase">Chủ đề / Nhóm từ vựng</label>
+          <input
+            type="text"
+            value={formData.category_id}
+            onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+            placeholder="Ví dụ: HSK 1, Chào hỏi, Sở thích..."
+            className="w-full mt-2 p-4 border border-blue-200 bg-blue-50/30 rounded-2xl font-bold focus:outline-blue-600 focus:bg-white transition-colors"
+          />
+          <p className="text-[10px] text-gray-400 mt-1 pl-2">Gợi ý: Nhập tên chủ đề, nó sẽ được giữ nguyên cho các từ tiếp theo bạn thêm vào.</p>
+        </div>
+
         {/* CHỮ HÁN */}
         <div>
           <div className="flex justify-between items-center mb-2">
