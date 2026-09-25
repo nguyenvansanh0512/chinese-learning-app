@@ -12,6 +12,33 @@ export default function VocabListPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [loading, setLoading] = useState(true);
 
+  // State phân trang & số lượng dòng hiển thị động
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(4); // Mặc định là 4
+
+  // LẮNG NGHE KÍCH THƯỚC MÀN HÌNH ĐỂ TỰ ĐỘNG ĐIỀU CHỈNH SỐ LƯỢNG TỪ/TRANG
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      if (width < 640) {
+        setItemsPerPage(4); // Điện thoại
+      } else if (width < 1024) {
+        setItemsPerPage(6); // Tablet
+      } else if (height > 900) {
+        setItemsPerPage(10); // Desktop cao/màn hình lớn
+      } else {
+        setItemsPerPage(8); // Laptop/Desktop chuẩn
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // LẤY DỮ LIỆU TỪ SUPABASE
   useEffect(() => {
     const fetchVocab = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -33,6 +60,7 @@ export default function VocabListPage() {
     fetchVocab();
   }, []);
 
+  // THAO TÁC XÓA TỪ
   const handleDelete = async (id: string) => {
     if (!confirm('Bạn có chắc muốn xóa từ vựng này khỏi sổ tay?')) return;
 
@@ -42,6 +70,7 @@ export default function VocabListPage() {
     }
   };
 
+  // PHÁT ÂM TỪ VỰNG
   const playAudio = (text: string) => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -52,7 +81,7 @@ export default function VocabListPage() {
     }
   };
 
-  // Thống kê số lượng từ vựng gom nhóm theo chủ đề
+  // THỐNG KÊ THEO CHỦ ĐỀ
   const categoryStats = useMemo(() => {
     const stats: Record<string, number> = {};
     let uncategorizedCount = 0;
@@ -73,10 +102,9 @@ export default function VocabListPage() {
     return list;
   }, [vocabList]);
 
-  // Lọc danh sách theo chủ đề và từ khóa tìm kiếm
+  // LỌC DANH SÁCH THEO CHỦ ĐỀ VÀ TỪ KHÓA TÌM KIẾM
   const filteredList = useMemo(() => {
     return vocabList.filter((item) => {
-      // 1. Lọc theo chủ đề được chọn
       if (selectedCategory !== 'all') {
         if (selectedCategory === 'Chưa phân loại') {
           if (item.category_id && item.category_id.trim() !== '') return false;
@@ -85,7 +113,6 @@ export default function VocabListPage() {
         }
       }
 
-      // 2. Lọc theo từ khóa tìm kiếm
       const term = searchTerm.toLowerCase().trim();
       if (!term) return true;
 
@@ -100,36 +127,21 @@ export default function VocabListPage() {
     });
   }, [vocabList, selectedCategory, searchTerm]);
 
+  // TÍNH TOÁN PHÂN TRANG AN TOÀN (SAFE PAGE - TRÁNH LỖI ESLINT)
+  const totalPages = Math.max(1, Math.ceil(filteredList.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+
+  // CẮT DANH SÁCH HIỂN THỊ
+  const paginatedList = filteredList.slice(
+    (safePage - 1) * itemsPerPage,
+    safePage * itemsPerPage
+  );
+
   return (
     <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
       
       {/* HEADER TRANG & NÚT TẠO TỪ */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900">📚 Sổ Từ Vựng Cá Nhân</h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Tổng cộng <span className="font-bold text-slate-800">{vocabList.length} từ vựng</span> chia trong{' '}
-            <span className="font-bold text-blue-600">
-              {categoryStats.filter((c) => c.name !== 'Chưa phân loại').length} chủ đề
-            </span>
-          </p>
-        </div>
-
-        <div className="flex items-center space-x-3 w-full md:w-auto">
-          <Link
-            href="/learn"
-            className="flex-1 md:flex-none px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-2xl transition-all text-center"
-          >
-            🎯 Học Flashcard
-          </Link>
-          <Link
-            href="/vocab/add"
-            className="flex-1 md:flex-none px-5 py-3 bg-black hover:bg-slate-800 text-white text-xs font-bold rounded-2xl shadow-sm transition-all text-center"
-          >
-            + Thêm Từ Mới
-          </Link>
-        </div>
-      </div>
+      
 
       {/* TỔNG QUAN THỐNG KÊ THEO CHỦ ĐỀ & THANH LỌC TAB */}
       <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
@@ -139,7 +151,10 @@ export default function VocabListPage() {
           </h2>
           {selectedCategory !== 'all' && (
             <button
-              onClick={() => setSelectedCategory('all')}
+              onClick={() => {
+                setSelectedCategory('all');
+                setCurrentPage(1);
+              }}
               className="text-xs text-blue-600 hover:underline font-bold"
             >
               Làm mới bộ lọc
@@ -150,7 +165,10 @@ export default function VocabListPage() {
         {/* THẺ TABS CÁC CHỦ ĐỀ */}
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => setSelectedCategory('all')}
+            onClick={() => {
+              setSelectedCategory('all');
+              setCurrentPage(1);
+            }}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
               selectedCategory === 'all'
                 ? 'bg-black text-white border-black shadow-sm'
@@ -170,7 +188,10 @@ export default function VocabListPage() {
           {categoryStats.map((cat) => (
             <button
               key={cat.name}
-              onClick={() => setSelectedCategory(cat.name)}
+              onClick={() => {
+                setSelectedCategory(cat.name);
+                setCurrentPage(1);
+              }}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
                 selectedCategory === cat.name
                   ? 'bg-black text-white border-black shadow-sm'
@@ -193,7 +214,7 @@ export default function VocabListPage() {
       </div>
 
       {/* THANH TÌM KIẾM & BẢNG DỮ LIỆU */}
-      <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden space-y-4">
+      <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
         
         {/* Ô Nhập Tìm Kiếm */}
         <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
@@ -202,12 +223,18 @@ export default function VocabListPage() {
             type="text"
             placeholder="Tìm chữ Hán, Pinyin, nghĩa tiếng Việt, ví dụ..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-gray-400 placeholder:font-normal"
           />
           {searchTerm && (
             <button
-              onClick={() => setSearchTerm('')}
+              onClick={() => {
+                setSearchTerm('');
+                setCurrentPage(1);
+              }}
               className="text-xs text-gray-400 hover:text-gray-600 font-bold px-2"
             >
               Xóa
@@ -227,10 +254,11 @@ export default function VocabListPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          /* KHUNG CÓ CUỘN DỌC TỰ ĐỘNG NẾU QUÁ CAO (max-h-[60vh] + overflow-y-auto) */
+          <div className="overflow-x-auto max-h-[60vh] overflow-y-auto border-b border-gray-100">
             <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="bg-gray-50 text-gray-400 text-[11px] font-bold uppercase tracking-wider border-b border-gray-100">
+              <thead className="sticky top-0 bg-gray-50 z-10 shadow-sm">
+                <tr className="text-gray-400 text-[11px] font-bold uppercase tracking-wider border-b border-gray-100">
                   <th className="p-4 pl-6">Chữ Hán & Pinyin</th>
                   <th className="p-4">Chủ Đề</th>
                   <th className="p-4">Nghĩa Tiếng Việt</th>
@@ -239,9 +267,8 @@ export default function VocabListPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredList.map((item) => (
+                {paginatedList.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                    {/* CHỮ HÁN & PINYIN */}
                     <td className="p-4 pl-6">
                       <div className="flex items-center gap-3">
                         <button
@@ -260,7 +287,6 @@ export default function VocabListPage() {
                       </div>
                     </td>
 
-                    {/* CHỦ ĐỀ / CATEGORY */}
                     <td className="p-4">
                       {item.category_id ? (
                         <span className="inline-block px-3 py-1 bg-gray-100 border border-gray-200 text-gray-700 font-bold text-[11px] rounded-full">
@@ -271,12 +297,10 @@ export default function VocabListPage() {
                       )}
                     </td>
 
-                    {/* NGHĨA TIẾNG VIỆT */}
                     <td className="p-4 font-bold text-slate-800 text-base">
                       {item.meaning_vi}
                     </td>
 
-                    {/* CÂU VÍ DỤ */}
                     <td className="p-4 max-w-md">
                       {item.example_sentence ? (
                         <div className="space-y-1 bg-slate-50 p-3 rounded-xl border border-gray-100">
@@ -299,7 +323,6 @@ export default function VocabListPage() {
                       )}
                     </td>
 
-                    {/* THAO TÁC (XÓA) */}
                     <td className="p-4 pr-6 text-right">
                       <button
                         onClick={() => handleDelete(item.id)}
@@ -312,6 +335,34 @@ export default function VocabListPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* BỘ ĐIỀU HƯỚNG PHÂN TRANG */}
+        {totalPages > 1 && (
+          <div className="p-4 bg-gray-50 flex justify-between items-center text-sm mt-auto">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+              className="px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 font-bold hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white transition-all shadow-sm"
+            >
+              ← Trang trước
+            </button>
+            <div className="text-center space-y-0.5">
+              <span className="text-gray-500 font-semibold text-xs block">
+                Trang <span className="font-black text-black text-sm">{safePage}</span> / {totalPages}
+              </span>
+              <span className="text-[10px] text-gray-400 font-medium">
+                ({itemsPerPage} từ/trang)
+              </span>
+            </div>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+              className="px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 font-bold hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white transition-all shadow-sm"
+            >
+              Trang sau →
+            </button>
           </div>
         )}
       </div>
