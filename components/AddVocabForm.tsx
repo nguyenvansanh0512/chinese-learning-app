@@ -14,6 +14,12 @@ export default function AddVocabForm() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
+  // STATE QUẢN LÝ DANH SÁCH CHỦ ĐỀ
+  const [existingCategories, setExistingCategories] = useState<string[]>([]);
+  const [isCustomCategory, setIsCustomCategory] = useState<boolean>(false);
+  const [customCategory, setCustomCategory] = useState<string>('');
+  const [fetchingCategories, setFetchingCategories] = useState<boolean>(true);
+
   const requestIdRef = useRef(0);
   const aiTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -24,15 +30,41 @@ export default function AddVocabForm() {
     example_sentence: '',
     example_pinyin: '',
     example_meaning: '',
-    category_id: '', // 🟢 THÊM STATE QUẢN LÝ CHỦ ĐỀ
+    category_id: '',
   });
 
+  // TẢI THÔNG TIN USER VÀ DANH SÁCH CHỦ ĐỀ HIỆN CÓ
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) {
         router.push('/login');
       } else {
         setUserId(user.id);
+
+        // Lấy danh sách các category_id đã tồn tại trong DB của user
+        const { data } = await supabase
+          .from('vocabularies')
+          .select('category_id')
+          .eq('user_id', user.id);
+
+        if (data) {
+          const categories = Array.from(
+            new Set(
+              data
+                .map((item) => item.category_id)
+                .filter((cat): cat is string => Boolean(cat && cat.trim() !== ''))
+            )
+          );
+          setExistingCategories(categories);
+
+          if (categories.length > 0) {
+            setFormData((prev) => ({ ...prev, category_id: categories[0] }));
+            setIsCustomCategory(false);
+          } else {
+            setIsCustomCategory(true);
+          }
+        }
+        setFetchingCategories(false);
       }
     });
   }, [router]);
@@ -101,7 +133,7 @@ export default function AddVocabForm() {
         example_sentence: '',
         example_pinyin: '',
         example_meaning: '',
-        category_id: formData.category_id, // Giữ lại chủ đề đang nhập
+        category_id: formData.category_id,
       });
       return;
     }
@@ -151,14 +183,21 @@ export default function AddVocabForm() {
       return;
     }
 
+    // Xác định chủ đề cuối cùng cần gửi đi
+    const finalCategory = isCustomCategory ? customCategory.trim() : formData.category_id.trim();
+
+    if (isCustomCategory && !finalCategory) {
+      alert('Vui lòng nhập tên chủ đề mới!');
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.from('vocabularies').insert([
       {
         ...formData,
         user_id: userId,
-        // Nếu người dùng không nhập chủ đề, có thể lưu null hoặc chuỗi rỗng
-        category_id: formData.category_id.trim() || null, 
+        category_id: finalCategory || null,
       },
     ]);
 
@@ -168,7 +207,13 @@ export default function AddVocabForm() {
       alert('Lỗi khi lưu: ' + error.message);
     } else {
       alert('Đã lưu từ vựng thành công!');
-      // Xóa form nhưng CÓ THỂ giữ lại category_id để người dùng nhập liên tục các từ cùng chủ đề
+
+      // Nếu vừa tạo chủ đề mới, cập nhật danh sách chủ đề có sẵn
+      if (isCustomCategory && finalCategory && !existingCategories.includes(finalCategory)) {
+        setExistingCategories((prev) => [...prev, finalCategory]);
+      }
+
+      // Xóa form nhưng giữ nguyên chủ đề hiện tại để nhập từ tiếp theo
       setFormData((prev) => ({
         hanzi: '',
         pinyin: '',
@@ -176,8 +221,11 @@ export default function AddVocabForm() {
         example_sentence: '',
         example_pinyin: '',
         example_meaning: '',
-        category_id: prev.category_id, // 🟢 Giữ nguyên chủ đề cho từ tiếp theo
+        category_id: finalCategory,
       }));
+
+      setIsCustomCategory(false);
+      setCustomCategory('');
       setAiError(null);
     }
   };
@@ -192,18 +240,61 @@ export default function AddVocabForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        
-        {/* 🟢 KHU VỰC CHỌN CHỦ ĐỀ */}
-        <div>
-          <label className="text-xs font-bold text-gray-500 uppercase">Chủ đề / Nhóm từ vựng</label>
-          <input
-            type="text"
-            value={formData.category_id}
-            onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-            placeholder="Ví dụ: HSK 1, Chào hỏi, Sở thích..."
-            className="w-full mt-2 p-4 border border-blue-200 bg-blue-50/30 rounded-2xl font-bold focus:outline-blue-600 focus:bg-white transition-colors"
-          />
-          <p className="text-[10px] text-gray-400 mt-1 pl-2">Gợi ý: Nhập tên chủ đề, nó sẽ được giữ nguyên cho các từ tiếp theo bạn thêm vào.</p>
+        {/* KHU VỰC CHỌN VÀ THÊM CHỦ ĐỀ */}
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 space-y-2">
+          <div className="flex justify-between items-center">
+            <label className="text-xs font-bold text-gray-500 uppercase">
+              Chủ đề / Nhóm từ vựng
+            </label>
+            {existingCategories.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCustomCategory(!isCustomCategory);
+                  if (isCustomCategory && existingCategories.length > 0) {
+                    setFormData((prev) => ({ ...prev, category_id: existingCategories[0] }));
+                  }
+                }}
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 underline"
+              >
+                {isCustomCategory ? '← Chọn từ chủ đề có sẵn' : '➕ Thêm chủ đề mới'}
+              </button>
+            )}
+          </div>
+
+          {fetchingCategories ? (
+            <p className="text-xs text-gray-400 font-semibold py-2">Đang tải danh sách chủ đề...</p>
+          ) : isCustomCategory || existingCategories.length === 0 ? (
+            <input
+              type="text"
+              value={customCategory}
+              onChange={(e) => setCustomCategory(e.target.value)}
+              placeholder="Nhập tên chủ đề mới (VD: HSK 1, Du lịch, Công sở)..."
+              className="w-full p-3.5 border border-blue-200 bg-white rounded-xl font-bold focus:outline-blue-600"
+            />
+          ) : (
+            <select
+              value={formData.category_id}
+              onChange={(e) => {
+                if (e.target.value === '__NEW__') {
+                  setIsCustomCategory(true);
+                } else {
+                  setFormData({ ...formData, category_id: e.target.value });
+                }
+              }}
+              className="w-full p-3.5 border border-slate-200 bg-white rounded-xl font-bold text-slate-800 focus:outline-blue-600 cursor-pointer"
+            >
+              {existingCategories.map((cat) => (
+                <option key={cat} value={cat}>
+                  📁 {cat}
+                </option>
+              ))}
+              <option value="__NEW__">➕ (Thêm chủ đề mới...)</option>
+            </select>
+          )}
+          <p className="text-[10px] text-gray-400 pl-1">
+            Gợi ý: Chủ đề sẽ được giữ nguyên để bạn thêm liên tục các từ cùng nhóm.
+          </p>
         </div>
 
         {/* CHỮ HÁN */}
