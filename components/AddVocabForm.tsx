@@ -206,7 +206,6 @@ export default function AddVocabForm() {
     if (error) {
       alert('Lỗi khi lưu: ' + error.message);
     } else {
-      alert('Đã lưu từ vựng thành công!');
 
       // Nếu vừa tạo chủ đề mới, cập nhật danh sách chủ đề có sẵn
       if (isCustomCategory && finalCategory && !existingCategories.includes(finalCategory)) {
@@ -234,9 +233,7 @@ export default function AddVocabForm() {
     <div className="max-w-3xl mx-auto bg-white rounded-3xl border border-gray-100 shadow-sm p-8 text-slate-800">
       <div className="border-b border-gray-100 pb-4 mb-6">
         <h2 className="text-2xl font-black text-slate-900">Thêm Từ Vựng Mới</h2>
-        <p className="text-xs text-gray-400 mt-1">
-          Nhập chữ Hán, AI sẽ tự động điền nghĩa, câu ví dụ và tạo Pinyin cho câu.
-        </p>
+        
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -301,11 +298,7 @@ export default function AddVocabForm() {
         <div>
           <div className="flex justify-between items-center mb-2">
             <label className="text-xs font-bold text-gray-500 uppercase">1. Chữ Hán (*)</label>
-            {aiLoading && (
-              <span className="text-xs text-blue-600 font-bold animate-pulse">
-                🤖 AI đang phân tích...
-              </span>
-            )}
+    
             {aiError && <span className="text-xs text-red-500 font-bold">⚠️ {aiError}</span>}
           </div>
           <input
@@ -338,7 +331,7 @@ export default function AddVocabForm() {
               value={formData.meaning_vi}
               onChange={(e) => setFormData({ ...formData, meaning_vi: e.target.value })}
               required
-              placeholder={aiLoading ? '🤖 AI đang lấy nghĩa...' : 'AI sẽ tự động điền'}
+              
               className="w-full p-4 border border-gray-200 rounded-2xl font-bold text-slate-800 focus:outline-blue-600"
             />
           </div>
@@ -352,7 +345,7 @@ export default function AddVocabForm() {
               type="text"
               value={formData.example_sentence}
               onChange={handleExampleSentenceChange}
-              placeholder={aiLoading ? '🤖 AI đang tạo câu...' : 'AI sẽ tự động tạo câu'}
+           
               className="w-full p-4 border border-gray-200 rounded-2xl focus:outline-blue-600"
             />
           </div>
@@ -363,7 +356,7 @@ export default function AddVocabForm() {
               type="text"
               value={formData.example_pinyin}
               onChange={(e) => setFormData({ ...formData, example_pinyin: e.target.value })}
-              placeholder="Pinyin câu ví dụ"
+             
               className="w-full p-4 border border-gray-200 rounded-2xl bg-slate-50 text-blue-600 font-bold"
             />
           </div>
@@ -376,7 +369,7 @@ export default function AddVocabForm() {
             type="text"
             value={formData.example_meaning}
             onChange={(e) => setFormData({ ...formData, example_meaning: e.target.value })}
-            placeholder={aiLoading ? '🤖 AI đang dịch...' : 'AI sẽ tự động dịch'}
+            
             className="w-full p-4 border border-gray-200 rounded-2xl focus:outline-blue-600"
           />
         </div>
